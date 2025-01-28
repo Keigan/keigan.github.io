@@ -1,125 +1,153 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>ATX - EYESOFTEXAS.IO</title>
-  <style>
-    /* Set the background color and text color */
-    body {
-      background-color: black;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-    
-    /* Style the title */
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    
-    /* Style the project info */
-    p {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    /* Define the grid layout for the photos */
-    .photo-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      grid-gap: 10px;
-    }
-    
-    /* Style the photo containers */
-    .photo-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid #ccc;
-      padding: 10px;
-    }
-    
-    /* Style the photos */
-    .photo {
-      max-width: 100%;
-      max-height: 100%;
-      cursor: pointer;
-    }
-  </style>
-  <script>
-    async function fetchData() {
-        const url = 'https://data.austintexas.gov/resource/b4k4-adkb.geojson?$limit=9999999999&$order=location_name asc&$select=location_name,location,camera_id,screenshot_address&$where=camera_status in (%27TURNED_ON%27)';
-        const response = await fetch(url);
-        const data = await response.json();
-        return data.features;
-    }
-
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth's radius in km
-      const dLat = toRadians(lat2 - lat1);
-      const dLon = toRadians(lon2 - lon1);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const d = R * c;
-      return d;
-    }
-
-    function toRadians(degrees) {
-      return degrees * Math.PI / 180;
-    }
-
-    function displayImages(data, currentPosition, radius) {
-        const container = document.querySelector('.photo-grid');
-        container.innerHTML = ''; // Clear the photo grid
-
-        data.forEach(item => {
-            const device_id = item.properties.camera_id;
-            const imageUrl = item.properties.screenshot_address;
-            const lat = item.geometry.coordinates[1];
-            const lon = item.geometry.coordinates[0];
-
-            const distance = getDistance(currentPosition.coords.latitude, currentPosition.coords.longitude, lat, lon);
-
-            if (distance <= radius) {
-                const photoContainer = document.createElement('div');
-                photoContainer.classList.add('photo-container');
-
-                const img = document.createElement('img');
-                img.classList.add('photo');
-                img.src = imageUrl;
-                img.alt = `Camera ${device_id}`;
-
-                photoContainer.appendChild(img);
-                container.appendChild(photoContainer);
-            }
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-        const data = await fetchData();
-        const radius = 5; // Set the radius in km
-
-        if ('geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            displayImages(data, position, radius);
-            setInterval(() => {
-              displayImages(data, position, radius);
-            }, 30000); // Refresh every 30 seconds
-          }, (error) => {
-            console.error('Error getting user location:', error);
-          });
-        } else {
-          console.error('Geolocation is not supported in this browser.');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Austin Traffic Camera Photos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            background-color: #333;
+            margin-bottom: 20px;
+        }
+
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .photo-container {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        .photo-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .photo {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .photo:hover {
+            opacity: 0.9;
+        }
+
+        .camera-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .camera-info h3 {
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .photo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+    <script>
+async function fetchData() {
+    const url = 'https://data.austintexas.gov/resource/pj7k-98z2.json?$limit=3000&$order=timestamp%20desc&$select=device_id,status_desc,timestamp&$where=device_type%20=%20%27camera%27';
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+}
+
+function displayImages(data) {
+    const container = document.querySelector('.photo-grid');
+    // Clear previous content before adding new images
+    container.innerHTML = '';
+
+    data.forEach(item => {
+        const device_id = item.device_id;
+        const imageUrl = `https://cctv.austinmobility.io/image/${device_id}.jpg`;
+
+        const photoContainer = document.createElement('div');
+        photoContainer.classList.add('photo-container');
+
+        const img = document.createElement('img');
+        img.classList.add('photo');
+        img.src = imageUrl;
+        img.alt = `Camera ${device_id}`;
+        img.addEventListener("click", () => {
+            const cameraUrl = `https://cctv.austinmobility.io/publicportal/device/${device_id}`;
+            window.open(cameraUrl, "_blank");
+        });
+
+        photoContainer.appendChild(img);
+        container.appendChild(photoContainer);
     });
-  </script>
+}
+
+async function refreshData() {
+    try {
+        const data = await fetchData();
+        displayImages(data);
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial data fetch
+    refreshData();
+
+    // Set up interval to update data every 1 minute (60,000 milliseconds)
+    setInterval(refreshData, 5000);
+});
+    </script>
 </head>
 <body>
-  <h1>ATX - EYES OF TEXAS</h1>
-  <p>
-    This project displays live photos from traffic cameras in Austin, Texas. The cameras within a 5 km radius of your current location are shown, and the photos refresh every 30 seconds.
-  </p>
-  <div class="photo-grid"></div>
+    <div class="container">
+        <header class="header">
+            <h1>Austin Traffic Cameras</h1>
+        </header>
+        <div class="photo-grid"></div>
+    </div>
 </body>
 </html>
